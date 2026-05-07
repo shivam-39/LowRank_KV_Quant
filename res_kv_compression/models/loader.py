@@ -53,16 +53,47 @@ def load_causal_lm_and_tokenizer(config: ModelConfig) -> LoadedModel:
         tokenizer.pad_token = tokenizer.eos_token
 
     model_kwargs: dict[str, Any] = {
-        "torch_dtype": torch_dtype,
+        "dtype": torch_dtype,
         "trust_remote_code": config.trust_remote_code,
     }
-    if config.device == "auto":
+    target_device: str | None = _target_device(config.device)
+    if config.device == "auto" and _accelerate_device_map_available():
         model_kwargs["device_map"] = "auto"
+        target_device = None
 
-    model = AutoModelForCausalLM.from_pretrained(config.model_name, **model_kwargs)
-    if config.device not in {"auto", "cpu"}:
-        model = model.to(config.device)
-    elif config.device == "cpu":
-        model = model.to("cpu")
+    try:
+        model = AutoModelForCausalLM.from_pretrained(config.model_name, **model_kwargs)
+    except ValueError as exc:
+        if model_kwargs.get("device_map") != "auto" or not _is_accelerate_device_map_error(exc):
+            raise
+        model_kwargs.pop("device_map")
+        target_device = _target_device("auto")
+        model = AutoModelForCausalLM.from_pretrained(config.model_name, **model_kwargs)
+
+    if target_device is not None:
+        model = model.to(target_device)
     model.eval()
     return LoadedModel(model=model, tokenizer=tokenizer)
+
+
+def _target_device(config_device: str) -> str | None:
+    if config_device != "auto":
+        return config_device
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def _accelerate_device_map_available() -> bool:
+    try:
+        from transformers.utils import is_accelerate_available
+    except Exception:
+        return False
+    return bool(is_accelerate_available())
+
+
+def _is_accelerate_device_map_error(error: ValueError) -> bool:
+    message = str(error)
+    return "requires `accelerate`" in message and "device_map" in message
