@@ -172,16 +172,17 @@ def compress_matrix(
     if matrix.ndim < 2:
         raise ValueError("matrix must have at least two dimensions")
     flattened = matrix.reshape(-1, matrix.shape[-1])
+    decomposition_matrix, output_device = _prepare_matrix_for_decomposition(flattened)
     max_rank = min(flattened.shape)
     target_rank = min(rank, max_rank)
 
     if decomposition_type == "pca":
         decomposition_type = "truncated_svd"
     if decomposition_type == "truncated_svd":
-        u_full, s_full, vh_full = torch.linalg.svd(flattened, full_matrices=False)
+        u_full, s_full, vh_full = torch.linalg.svd(decomposition_matrix, full_matrices=False)
     elif decomposition_type == "randomized_svd":
         u_full, s_full, vh_full = randomized_svd(
-            flattened,
+            decomposition_matrix,
             rank=target_rank,
             oversamples=randomized_oversamples,
             n_iter=randomized_n_iter,
@@ -192,9 +193,9 @@ def compress_matrix(
 
     selected_rank = select_rank_by_energy(s_full, energy_threshold) if adaptive_rank else target_rank
     selected_rank = min(selected_rank, target_rank, s_full.numel())
-    u = u_full[:, :selected_rank].contiguous()
-    s = s_full[:selected_rank].contiguous()
-    vh = vh_full[:selected_rank, :].contiguous()
+    u = u_full[:, :selected_rank].to(output_device).contiguous()
+    s = s_full[:selected_rank].to(output_device).contiguous()
+    vh = vh_full[:selected_rank, :].to(output_device).contiguous()
     spectral_energy = _spectral_energy(s_full, selected_rank)
     return LowRankMatrixApproximation(
         u=u,
@@ -235,6 +236,18 @@ def randomized_svd(
     u_hat, singular_values, vh = torch.linalg.svd(small_matrix, full_matrices=False)
     u = q @ u_hat
     return u, singular_values, vh
+
+
+def _prepare_matrix_for_decomposition(matrix: torch.Tensor) -> tuple[torch.Tensor, torch.device]:
+    """Return an SVD-safe matrix and the device where factors should live."""
+
+    output_device = matrix.device
+    decomposition_matrix = matrix.detach()
+    if decomposition_matrix.dtype in {torch.float16, torch.bfloat16}:
+        decomposition_matrix = decomposition_matrix.to(torch.float32)
+    if decomposition_matrix.device.type == "mps":
+        decomposition_matrix = decomposition_matrix.cpu()
+    return decomposition_matrix, output_device
 
 
 def compress_tensor(

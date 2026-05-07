@@ -54,6 +54,26 @@ def test_hybrid_error_is_no_worse_than_low_rank_only_for_residual_quantization()
     )
 
 
+def test_reconstruction_error_supports_half_precision_inputs() -> None:
+    snapshot = _snapshot()
+    half_snapshot = KVCacheSnapshot(
+        layers=(
+            KVLayerCache(
+                layer_idx=0,
+                key=snapshot.layers[0].key.half(),
+                value=snapshot.layers[0].value.half(),
+            ),
+        )
+    )
+    compressed = compress_kv_snapshot_hybrid(
+        half_snapshot,
+        CompressionConfig(rank=2, granularity="per_head"),
+        QuantizationConfig(quant_bits=4, group_size=16),
+    )
+
+    assert compressed.reconstruction_error(half_snapshot) >= 0.0
+
+
 def test_memory_report_tracks_logical_quantized_bytes() -> None:
     snapshot = _snapshot()
     compressed = compress_kv_snapshot_hybrid(

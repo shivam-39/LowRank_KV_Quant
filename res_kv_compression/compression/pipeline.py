@@ -99,10 +99,10 @@ class HybridCompressedKVSnapshot:
         squared_error = torch.zeros((), dtype=torch.float64)
         squared_norm = torch.zeros((), dtype=torch.float64)
         for original_layer, reconstructed_layer in zip(original.layers, reconstructed.layers, strict=True):
-            squared_error = squared_error + (original_layer.key - reconstructed_layer.key).double().square().sum()
-            squared_error = squared_error + (original_layer.value - reconstructed_layer.value).double().square().sum()
-            squared_norm = squared_norm + original_layer.key.double().square().sum()
-            squared_norm = squared_norm + original_layer.value.double().square().sum()
+            squared_error = squared_error + _cpu_squared_sum(original_layer.key - reconstructed_layer.key)
+            squared_error = squared_error + _cpu_squared_sum(original_layer.value - reconstructed_layer.value)
+            squared_norm = squared_norm + _cpu_squared_sum(original_layer.key)
+            squared_norm = squared_norm + _cpu_squared_sum(original_layer.value)
         if squared_norm <= 0:
             return float(torch.sqrt(squared_error).item())
         return float(torch.sqrt(squared_error / squared_norm).item())
@@ -118,3 +118,7 @@ def compress_kv_snapshot_hybrid(
     low_rank = compress_kv_snapshot(snapshot, compression_config)
     residual = quantize_kv_residuals(snapshot, low_rank, quantization_config)
     return HybridCompressedKVSnapshot(low_rank=low_rank, residual=residual)
+
+
+def _cpu_squared_sum(tensor: torch.Tensor) -> torch.Tensor:
+    return tensor.detach().cpu().to(torch.float64).square().sum()

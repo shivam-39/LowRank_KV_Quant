@@ -36,7 +36,7 @@ def evaluate_perplexity(
         raise ValueError("stride must be positive")
 
     joined = "\n\n".join(text for text in texts if text)
-    encoded = tokenizer(joined, return_tensors="pt")
+    encoded = _tokenize_for_perplexity(tokenizer, joined)
     input_ids = encoded["input_ids"]
     if device is None:
         device = next(model.parameters()).device
@@ -90,3 +90,10 @@ def load_wikitext_texts(
     if max_samples > 0:
         texts = texts[:max_samples]
     return texts
+
+
+def _tokenize_for_perplexity(tokenizer: Any, text: str) -> dict[str, torch.Tensor]:
+    try:
+        return tokenizer(text, return_tensors="pt", truncation=False, verbose=False)
+    except TypeError:
+        return tokenizer(text, return_tensors="pt")

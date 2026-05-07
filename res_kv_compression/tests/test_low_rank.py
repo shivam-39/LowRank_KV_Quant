@@ -28,6 +28,18 @@ def test_full_rank_truncated_svd_reconstructs_matrix() -> None:
     assert torch.allclose(reconstruction, matrix, atol=1e-5)
 
 
+def test_half_precision_matrix_uses_float32_decomposition() -> None:
+    torch.manual_seed(0)
+    matrix = torch.randn(8, 5, dtype=torch.float16)
+
+    approximation = compress_matrix(matrix, rank=5)
+    reconstruction = approximation.reconstruct()
+
+    assert approximation.u.dtype == torch.float32
+    assert reconstruction.dtype == torch.float32
+    assert torch.allclose(reconstruction, matrix.float(), atol=5e-3)
+
+
 def test_adaptive_rank_selects_smaller_rank_for_low_rank_matrix() -> None:
     torch.manual_seed(0)
     left = torch.randn(16, 2)
