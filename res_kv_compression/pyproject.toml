@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "res-kv-compression"
+version = "0.1.0"
+description = "Research framework for low-rank plus quantized residual KV cache compression."
+requires-python = ">=3.10"
+dependencies = [
+    "accelerate",
+    "datasets",
+    "einops",
+    "hydra-core",
+    "numpy",
+    "omegaconf",
+    "pytest",
+    "pyyaml",
+    "scipy",
+    "torch",
+    "transformers",
+    "wandb",
+]
+
+[tool.setuptools]
+py-modules = ["run_experiment"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "attention*",
+    "benchmarks*",
+    "compression*",
+    "evaluation*",
+    "experiments*",
+    "models*",
+    "quantization*",
+    "research*",
+    "scripts*",
+    "utils*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"

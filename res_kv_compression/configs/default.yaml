@@ -1,0 +1,61 @@
+experiment:
+  name: low_rank_residual_kv
+  seed: 42
+
+model:
+  model_name: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+  dtype: float16
+  device: auto
+  max_seq_len: 2048
+  trust_remote_code: false
+  use_cache: true
+
+compression:
+  rank: 16
+  decomposition_type: truncated_svd
+  randomized_oversamples: 8
+  randomized_n_iter: 2
+  adaptive_rank: false
+  shared_rank: true
+  energy_threshold: 0.99
+  granularity: per_head
+
+quantization:
+  quant_bits: 4
+  group_size: 64
+  per_channel: false
+  symmetric: true
+  fake_quant: true
+
+attention:
+  mode: reconstructed
+  causal: true
+  dropout_p: 0.0
+
+objectives:
+  use_attention_loss: true
+  use_softmax_loss: true
+  use_output_loss: true
+  softmax_loss_type: kl
+  lambda_recon: 1.0
+  lambda_attention: 1.0
+  lambda_softmax: 1.0
+  lambda_output: 1.0
+
+evaluation:
+  perplexity_eval: false
+  long_context_eval: false
+  latency_eval: false
+  memory_eval: false
+  dataset_name: wikitext
+  dataset_config: wikitext-2-raw-v1
+  split: test
+  max_eval_samples: 32
+  batch_size: 1
+  stride: 512
+
+logging:
+  wandb: false
+  tensorboard: false
+  output_dir: logs/default
+  log_level: INFO
