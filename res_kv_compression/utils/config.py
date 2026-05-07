@@ -77,6 +77,9 @@ class EvaluationConfig:
     max_eval_samples: int = 32
     batch_size: int = 1
     stride: int = 512
+    prompt: str = "Low-rank residual KV cache compression"
+    latency_warmup: int = 1
+    latency_iters: int = 5
 
 
 @dataclass(frozen=True)
@@ -218,6 +221,10 @@ def _validate_config(config: ExperimentConfig) -> None:
         raise ValueError("evaluation.batch_size must be positive")
     if config.evaluation.stride <= 0:
         raise ValueError("evaluation.stride must be positive")
+    if config.evaluation.latency_warmup < 0:
+        raise ValueError("evaluation.latency_warmup must be non-negative")
+    if config.evaluation.latency_iters <= 0:
+        raise ValueError("evaluation.latency_iters must be positive")
 
 
 def with_logging_dir(config: ExperimentConfig, output_dir: str) -> ExperimentConfig:

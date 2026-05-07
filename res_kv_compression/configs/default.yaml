@@ -53,6 +53,9 @@ evaluation:
   max_eval_samples: 32
   batch_size: 1
   stride: 512
+  prompt: "Low-rank residual KV cache compression"
+  latency_warmup: 1
+  latency_iters: 5
 
 logging:
   wandb: false
