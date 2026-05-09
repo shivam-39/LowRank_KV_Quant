@@ -121,6 +121,32 @@ class KVCacheSnapshot:
             )
         return cls(layers=tuple(layers), metadata=metadata or {})
 
+    def to_legacy_past_key_values(self) -> tuple[tuple[torch.Tensor, torch.Tensor], ...]:
+        """Convert the snapshot to HuggingFace's legacy tuple cache format."""
+
+        return tuple((layer.key, layer.value) for layer in self.layers)
+
+    def to_past_key_values_like(self, reference: Any | None = None) -> Any:
+        """Convert the snapshot to a cache object compatible with ``reference`` when possible."""
+
+        legacy_cache = self.to_legacy_past_key_values()
+        if reference is not None and _is_cache_object(reference):
+            try:
+                return type(reference).from_legacy_cache(legacy_cache)
+            except Exception:
+                pass
+            try:
+                return type(reference)(legacy_cache)
+            except Exception:
+                pass
+            try:
+                from transformers.cache_utils import DynamicCache
+
+                return DynamicCache(legacy_cache)
+            except Exception:
+                return legacy_cache
+        return legacy_cache
+
 
 class KVCacheExtractor:
     """Extract KV caches from causal LM forward passes."""
@@ -227,6 +253,10 @@ def _to_legacy_cache(past_key_values: Any) -> Iterable[Any]:
     if hasattr(past_key_values, "to_legacy_cache"):
         return past_key_values.to_legacy_cache()
     return past_key_values
+
+
+def _is_cache_object(past_key_values: Any) -> bool:
+    return hasattr(past_key_values, "get_seq_length") or hasattr(past_key_values, "to_legacy_cache")
 
 
 def _extract_key_value(layer_cache: Any) -> tuple[torch.Tensor, torch.Tensor]:

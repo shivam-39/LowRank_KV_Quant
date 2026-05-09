@@ -12,6 +12,7 @@ from typing import Any
 import torch
 
 from compression.pipeline import compress_kv_snapshot_hybrid
+from evaluation.generation_memory import evaluate_compressed_generation_memory
 from evaluation.latency import benchmark_callable
 from evaluation.memory import estimate_hf_kv_cache_bytes, snapshot_memory_report
 from evaluation.perplexity import evaluate_perplexity, load_wikitext_texts
@@ -59,6 +60,7 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
             config.evaluation.long_context_eval,
             config.evaluation.latency_eval,
             config.evaluation.memory_eval,
+            config.evaluation.generation_memory_eval,
         )
     )
     metrics: dict[str, float] = {}
@@ -69,6 +71,8 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
         model = loaded_model.model
         tokenizer = loaded_model.tokenizer
         model_device = next(model.parameters()).device
+
+        # logger.info("\n\n\n\n\n\nmodel", model)
 
         if config.evaluation.perplexity_eval:
             texts = load_wikitext_texts(
@@ -118,6 +122,10 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
                 metadata={"prompt": config.evaluation.prompt},
             )
             compressed = compress_kv_snapshot_hybrid(snapshot, config.compression, config.quantization)
+
+            # logger.info("snapshot.num_layers", snapshot.num_layers)
+            # logger.info("snapshot.total_tokens", snapshot.total_tokens)
+
             memory = snapshot_memory_report(snapshot, compressed)
             metrics["estimated_dense_kv_bytes"] = float(dense_estimate)
             metrics["prompt_kv_bytes"] = float(memory.original_bytes)
@@ -128,6 +136,31 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
             if memory.memory_savings is not None:
                 metrics["memory_savings"] = memory.memory_savings
             metrics["prompt_reconstruction_error"] = compressed.reconstruction_error(snapshot)
+
+        if config.evaluation.generation_memory_eval:
+            generation_memory = evaluate_compressed_generation_memory(
+                model=model,
+                tokenizer=tokenizer,
+                prompt=config.evaluation.prompt,
+                max_seq_len=config.model.max_seq_len,
+                compression_config=config.compression,
+                quantization_config=config.quantization,
+                output_dir=config.logging.output_dir,
+            )
+            for point in generation_memory.points:
+                experiment_logger.log_metrics(point.as_metrics(), step=point.sequence_length)
+            final_point = generation_memory.final_point
+            metrics["generation_final_seq_len"] = float(final_point.sequence_length)
+            metrics["generation_generated_tokens"] = float(generation_memory.generated_tokens)
+            metrics["generation_final_dense_kv_bytes"] = float(final_point.dense_kv_bytes)
+            metrics["generation_final_compressed_kv_logical_bytes"] = float(
+                final_point.compressed_kv_logical_bytes
+            )
+            metrics["generation_final_memory_compression_ratio"] = final_point.compression_ratio
+            metrics["generation_final_memory_savings"] = final_point.memory_savings
+            artifacts["generation_memory_trace"] = str(generation_memory.trace_path)
+            if generation_memory.plot_path is not None:
+                artifacts["generation_memory_plot"] = str(generation_memory.plot_path)
 
         if config.evaluation.long_context_eval:
             encoded = tokenizer(config.evaluation.prompt, return_tensors="pt")["input_ids"][0]

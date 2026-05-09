@@ -1,5 +1,5 @@
 experiment:
-  name: low_rank_residual_kv
+  name: tinyllama_generation_memory
   seed: 42
 
 model:
@@ -47,7 +47,7 @@ evaluation:
   long_context_eval: false
   latency_eval: false
   memory_eval: false
-  generation_memory_eval: false
+  generation_memory_eval: true
   dataset_name: wikitext
   dataset_config: wikitext-2-raw-v1
   split: test
@@ -61,5 +61,5 @@ evaluation:
 logging:
   wandb: false
   tensorboard: false
-  output_dir: logs/default
+  output_dir: logs/tinyllama_generation_memory
   log_level: INFO

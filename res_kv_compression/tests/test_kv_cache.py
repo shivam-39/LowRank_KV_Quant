@@ -70,6 +70,21 @@ def test_snapshot_rejects_empty_cache() -> None:
         KVCacheSnapshot(layers=())
 
 
+def test_snapshot_converts_to_dynamic_cache_for_cache_object_reference() -> None:
+    pytest.importorskip("transformers")
+    from transformers.cache_utils import DynamicCache
+
+    key = torch.randn(1, 1, 3, 2)
+    value = torch.randn(1, 1, 3, 2)
+    snapshot = KVCacheSnapshot.from_past_key_values(((key, value),))
+    reference = DynamicCache(((key, value),))
+
+    converted = snapshot.to_past_key_values_like(reference)
+
+    assert hasattr(converted, "get_seq_length")
+    assert converted.get_seq_length() == 3
+
+
 def test_attention_hook_capture_collects_present_kv() -> None:
     model = ToyWithAttention()
     capture = AttentionHookCapture()

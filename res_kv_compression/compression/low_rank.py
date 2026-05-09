@@ -273,6 +273,12 @@ def compress_tensor(
             )
             for head_idx in range(tensor.shape[1])
         )
+
+        # print("u.shape:", factors[0].u.shape)
+        # print("s.shape:", factors[0].s.shape)
+        # print("vh.shape:", factors[0].vh.shape)
+        # print("original_shape:", factors[0].original_shape)
+
         return LowRankTensorApproximation(
             factors=factors,
             original_shape=tuple(tensor.shape),
@@ -308,6 +314,9 @@ def compress_kv_layer(layer: KVLayerCache, config: CompressionConfig) -> LowRank
 
 def compress_kv_snapshot(snapshot: KVCacheSnapshot, config: CompressionConfig) -> LowRankKVSnapshot:
     """Compute low-rank approximations for all layers in a KV snapshot."""
+
+    # print("snapshot.layers[0].key.shape:", snapshot.layers[0].key.shape)
+    # print("snapshot.layers[0].value.shape:", snapshot.layers[0].value.shape)
 
     return LowRankKVSnapshot(
         layers=tuple(compress_kv_layer(layer, config) for layer in snapshot.layers),

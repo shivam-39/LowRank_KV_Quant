@@ -71,6 +71,7 @@ class EvaluationConfig:
     long_context_eval: bool = False
     latency_eval: bool = False
     memory_eval: bool = False
+    generation_memory_eval: bool = False
     dataset_name: str = "wikitext"
     dataset_config: str = "wikitext-2-raw-v1"
     split: str = "test"
@@ -219,6 +220,8 @@ def _validate_config(config: ExperimentConfig) -> None:
         raise ValueError("objectives.softmax_loss_type must be kl or mse")
     if config.evaluation.batch_size <= 0:
         raise ValueError("evaluation.batch_size must be positive")
+    if config.model.max_seq_len <= 0:
+        raise ValueError("model.max_seq_len must be positive")
     if config.evaluation.stride <= 0:
         raise ValueError("evaluation.stride must be positive")
     if config.evaluation.latency_warmup < 0:
